@@ -1,4 +1,4 @@
-// functions/api/delete.js - 删除短链接
+// functions/api/login.js - 登录验证API
 export async function onRequest(context) {
   try {
     const { request, env } = context;
@@ -19,18 +19,6 @@ export async function onRequest(context) {
       });
     }
 
-    // 检查 KV 是否可用
-    const kv = env?.LINKS;
-    if (!kv) {
-      return new Response(JSON.stringify({
-        code: 500,
-        message: '请去Pages控制台-设置 将变量名称设定为"LINKS"并绑定KV命名空间然后重试部署！'
-      }), {
-        status: 200,
-        headers: corsHeaders
-      });
-    }
-
     // 只允许 POST 请求
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({
@@ -42,19 +30,29 @@ export async function onRequest(context) {
       });
     }
 
-    let shortKey, password;
+    // 获取环境变量中的管理密码
+    const adminPassword = env?.ADMIN_PASSWORD;
+    if (!adminPassword) {
+      return new Response(JSON.stringify({
+        code: 500,
+        message: '请在Pages控制台-设置中添加环境变量 ADMIN_PASSWORD'
+      }), {
+        status: 200,
+        headers: corsHeaders
+      });
+    }
+
+    let password;
 
     try {
       // 处理表单数据或JSON数据
       const contentType = request.headers.get('content-type') || '';
-
+      
       if (contentType.includes('application/json')) {
         const requestData = await request.json();
-        shortKey = requestData.shortKey;
         password = requestData.password;
       } else {
         const formData = await request.formData();
-        shortKey = formData.get('shortKey');
         password = formData.get('password');
       }
     } catch (error) {
@@ -67,12 +65,11 @@ export async function onRequest(context) {
       });
     }
 
-    // 获取环境变量中的管理密码
-    const adminPassword = env?.ADMIN_PASSWORD;
-    if (!adminPassword) {
+    // 检查是否提供了密码
+    if (!password) {
       return new Response(JSON.stringify({
-        code: 500,
-        message: '请在Pages控制台-设置中添加环境变量 ADMIN_PASSWORD'
+        code: 400,
+        message: 'Password is required'
       }), {
         status: 200,
         headers: corsHeaders
@@ -90,38 +87,15 @@ export async function onRequest(context) {
       });
     }
 
-    // 检查是否提供了 shortKey
-    if (!shortKey) {
-      return new Response(JSON.stringify({
-        code: 400,
-        message: 'shortKey is required'
-      }), {
-        status: 200,
-        headers: corsHeaders
-      });
-    }
-
-    // 检查短链接是否存在
-    const existingUrl = await kv.get(shortKey);
-    if (!existingUrl) {
-      return new Response(JSON.stringify({
-        code: 404,
-        message: 'Short link not found'
-      }), {
-        status: 200,
-        headers: corsHeaders
-      });
-    }
-
-    // 删除短链接
-    await kv.delete(shortKey);
+    // 生成简单的会话token（这里使用时间戳+随机数）
+    const sessionToken = btoa(Date.now() + '_' + Math.random().toString(36).substr(2, 9));
 
     return new Response(JSON.stringify({
       code: 200,
-      message: 'Short link deleted successfully',
+      message: 'Login successful',
       data: {
-        shortKey: shortKey,
-        longUrl: existingUrl
+        token: sessionToken,
+        expiresIn: 24 * 60 * 60 * 1000 // 24小时
       }
     }), {
       status: 200,
@@ -129,7 +103,7 @@ export async function onRequest(context) {
     });
 
   } catch (error) {
-    console.error('Delete API error:', error);
+    console.error('Login API error:', error);
     return new Response(JSON.stringify({
       code: 500,
       message: 'Internal server error',

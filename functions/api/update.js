@@ -69,8 +69,20 @@ export async function onRequest(context) {
       });
     }
 
+    // 获取环境变量中的管理密码
+    const adminPassword = env?.ADMIN_PASSWORD;
+    if (!adminPassword) {
+      return new Response(JSON.stringify({
+        code: 500,
+        message: '请在Pages控制台-设置中添加环境变量 ADMIN_PASSWORD'
+      }), {
+        status: 200,
+        headers: corsHeaders
+      });
+    }
+
     // 验证密码
-    if (password !== 'wuweixiang') {
+    if (password !== adminPassword) {
       return new Response(JSON.stringify({
         code: 401,
         message: 'Invalid password'

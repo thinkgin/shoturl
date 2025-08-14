@@ -21,7 +21,8 @@
 ### 🛡️ API 安全
 
 - 所有 API 调用需要密码验证
-- 密码参数：`password=wuweixiang`
+- 管理员密码存储在环境变量中
+- 前端通过 `/api/login` 验证密码
 
 ## 技术栈
 
@@ -70,6 +71,7 @@
 │   ├── short.js          # 处理短链接创建 (POST /short)
 │   ├── [shortKey].js     # 处理短链接重定向 (GET /{shortKey})
 │   └── api/
+│       ├── login.js      # 管理员登录验证 (POST /api/login)
 │       ├── list.js       # 获取短链接列表 (GET /api/list)
 │       ├── delete.js     # 删除短链接 (POST /api/delete)
 │       └── update.js     # 更新短链接 (POST /api/update)
@@ -92,13 +94,20 @@
 
 ## API 说明
 
+### 管理员登录
+
+- **端点**: `POST /api/login`
+- **参数**:
+  - `password`: 管理员密码
+- **响应**: 返回登录 token 和过期时间
+
 ### 创建短链接
 
 - **端点**: `POST /short`
 - **参数**:
   - `longUrl`: Base64 编码的长链接
   - `shortKey`: 可选的自定义短码
-  - `password`: wuweixiang
+  - `password`: 管理员密码
 
 ### 获取链接列表
 
@@ -106,14 +115,14 @@
 - **参数**:
   - `page`: 页码
   - `pageSize`: 每页数量
-  - `password`: wuweixiang
+  - `password`: 管理员密码
 
 ### 删除链接
 
 - **端点**: `POST /api/delete`
 - **参数**:
   - `shortKey`: 要删除的短码
-  - `password`: wuweixiang
+  - `password`: 管理员密码
 
 ### 更新链接
 
@@ -121,7 +130,7 @@
 - **参数**:
   - `shortKey`: 要更新的短码
   - `longUrl`: 新的长链接
-  - `password`: wuweixiang
+  - `password`: 管理员密码
 
 ### 访问短链接
 
@@ -138,6 +147,16 @@
 ## 部署注意事项
 
 1. **KV 绑定是必需的**：确保在 Pages 设置中正确绑定 KV 命名空间
-2. **重新部署**：绑定 KV 后必须重新部署项目
-3. **域名配置**：可以绑定自定义域名以获得更短的链接
-4. **HTTPS**：Cloudflare Pages 默认提供 HTTPS 支持
+   - 变量名称：`LINKS`
+2. **环境变量设置**：在 Pages 控制台添加环境变量
+   - 变量名：`ADMIN_PASSWORD`
+   - 变量值：你的管理员密码（例如：`wuweixiang`）
+3. **重新部署**：绑定 KV 和设置环境变量后必须重新部署项目
+4. **域名配置**：可以绑定自定义域名以获得更短的链接
+5. **HTTPS**：Cloudflare Pages 默认提供 HTTPS 支持
+
+## 安全改进
+
+- ✅ **密码保护**：管理员密码现在存储在环境变量中，不会暴露在前端代码中
+- ✅ **API 验证**：所有管理 API 都需要密码验证
+- ✅ **会话管理**：登录状态本地保存，24 小时过期
