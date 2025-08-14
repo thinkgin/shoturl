@@ -245,10 +245,10 @@
               <h4>在线测试：</h4>
               <el-form inline>
                 <el-form-item label="页码">
-                  <el-input-number v-model="testList.page" :min="1" style="width: 100px;"></el-input-number>
+                  <el-input-number v-model="testList.page" :min="1" style="width: 120px;"></el-input-number>
                 </el-form-item>
                 <el-form-item label="每页数量">
-                  <el-select v-model="testList.pageSize" style="width: 100px;">
+                  <el-select v-model="testList.pageSize" style="width: 120px;">
                     <el-option label="10" :value="10"></el-option>
                     <el-option label="20" :value="20"></el-option>
                     <el-option label="50" :value="50"></el-option>
@@ -1074,6 +1074,26 @@
       color: #666;
     }
 
+    /* API文档表单样式 */
+    .api-section .el-form--inline .el-form-item {
+      margin-bottom: 15px;
+      margin-right: 15px;
+    }
+
+    .api-section .el-input-number {
+      width: 120px !important;
+    }
+
+    .api-section .el-input-number .el-input__inner {
+      text-align: center;
+      padding-left: 30px;
+      padding-right: 30px;
+    }
+
+    .api-section .el-select {
+      width: 120px !important;
+    }
+
     .test-result {
       margin-top: 20px;
       border: 1px solid #dcdfe6;
@@ -1142,6 +1162,18 @@
       .search-result-info {
         display: block;
         margin: 10px 0 0 0;
+      }
+
+      /* API文档表单响应式 */
+      .api-section .el-form--inline .el-form-item {
+        display: block;
+        margin-right: 0;
+        margin-bottom: 15px;
+      }
+
+      .api-section .el-input-number,
+      .api-section .el-select {
+        width: 100% !important;
       }
     }
   </style>
