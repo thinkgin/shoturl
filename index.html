@@ -45,14 +45,14 @@
 
     <!-- 管理界面 -->
     <div v-if="isLoggedIn" class="admin-container">
-      <el-container>
+    <el-container>
         <el-header class="admin-header">
           <div class="header-content">
             <h1>Url Shortner</h1>
             <el-button type="text" @click="handleLogout" class="logout-btn">退出登录</el-button>
           </div>
         </el-header>
-        <el-main>
+      <el-main>
           <!-- 添加短链接区域 -->
           <el-card class="add-url-card">
             <div slot="header" class="clearfix">
@@ -65,14 +65,14 @@
                   placeholder="请输入要缩短的URL"
                   style="width: 400px;"
                   @keyup.enter.native="createShortUrl">
-                </el-input>
+          </el-input>
               </el-form-item>
               <el-form-item label="自定义短码">
                 <el-input
                   v-model="urlForm.shortKey"
                   placeholder="可选，留空自动生成"
                   style="width: 200px;">
-                </el-input>
+          </el-input>
               </el-form-item>
               <el-form-item>
                 <el-button type="primary" @click="createShortUrl" :loading="createLoading">
@@ -115,7 +115,7 @@
                     <el-button size="mini" @click="copyToClipboard(getShortUrl(scope.row.shortKey))">复制</el-button>
                     <el-button size="mini" type="primary" @click="editUrl(scope.row)">编辑</el-button>
                     <el-button size="mini" type="danger" @click="deleteUrl(scope.row.shortKey)">删除</el-button>
-                  </div>
+        </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -132,8 +132,8 @@
               style="margin-top: 20px; text-align: right;">
             </el-pagination>
           </el-card>
-        </el-main>
-      </el-container>
+      </el-main>
+    </el-container>
     </div>
 
     <!-- 编辑对话框 -->
@@ -303,7 +303,7 @@
 
           // URL管理相关
           urlForm: {
-            longUrl: '',
+          longUrl: '',
             shortKey: ''
           },
           createLoading: false,
@@ -373,23 +373,35 @@
         this.checkLoginStatus();
       },
       mounted() {
+        console.log('页面加载完成，登录状态:', this.isLoggedIn);
         if (this.isLoggedIn) {
+          console.log('已登录，开始加载列表');
           this.loadUrlList();
         }
       },
       methods: {
         // 检查登录状态
         checkLoginStatus() {
+          console.log('检查登录状态');
           const session = localStorage.getItem(SESSION_KEY);
           if (session) {
             const sessionData = JSON.parse(session);
             const now = new Date().getTime();
             // 检查会话是否过期（24小时）
             if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
+              console.log('会话有效，设置登录状态');
               this.isLoggedIn = true;
+              // 在下一个tick中加载列表，确保DOM已更新
+              this.$nextTick(() => {
+                console.log('会话恢复后加载列表');
+                this.loadUrlList();
+              });
             } else {
+              console.log('会话已过期');
               localStorage.removeItem(SESSION_KEY);
             }
+          } else {
+            console.log('未找到会话数据');
           }
         },
 
@@ -407,6 +419,7 @@
                   password: this.loginForm.password
                 },
                 success: (res) => {
+                  console.log('登录响应:', res);
                   if (res.code === 200) {
                     this.isLoggedIn = true;
                     // 保存会话和token
@@ -418,7 +431,11 @@
                     };
                     localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
                     this.$message.success('登录成功！');
-                    this.loadUrlList();
+                    console.log('登录成功，开始加载列表');
+                    // 延迟一下再加载列表，确保页面状态更新完成
+                    this.$nextTick(() => {
+                      this.loadUrlList();
+                    });
                   } else {
                     this.$message.error(res.message || '登录失败！');
                   }
@@ -469,18 +486,34 @@
           const sessionData = session ? JSON.parse(session) : {};
           const password = sessionData.password || '';
 
-          let data = new URLSearchParams();
+          console.log('创建短链接 - 密码:', password ? '已获取' : '未获取');
+
+          if (!password) {
+            this.$message.error('未获取到登录密码，请重新登录');
+            this.createLoading = false;
+            this.isLoggedIn = false;
+            return;
+          }
+
+            let data = new URLSearchParams();
           data.append("longUrl", btoa(this.urlForm.longUrl));
           data.append("shortKey", this.urlForm.shortKey || '');
           data.append("password", password);
 
-          $.ajax({
+          console.log('发送创建请求:', {
             url: '/short',
-            type: 'POST',
-            data: data.toString(),
-            contentType: 'application/x-www-form-urlencoded; charset=utf-8',
-            success: (res) => {
-              if (res.Code === 1 && res.ShortUrl !== "") {
+            longUrl: this.urlForm.longUrl,
+            shortKey: this.urlForm.shortKey
+          });
+
+            $.ajax({
+              url: '/short',
+              type: 'POST',
+              data: data.toString(),
+              contentType: 'application/x-www-form-urlencoded; charset=utf-8',
+              success: (res) => {
+              console.log('创建响应:', res);
+                if (res.Code === 1 && res.ShortUrl !== "") {
                 this.$message.success("短链接创建成功！");
                 this.urlForm.longUrl = '';
                 this.urlForm.shortKey = '';
@@ -489,8 +522,9 @@
                 this.$message.error("短链接创建失败：" + res.Message);
               }
             },
-            error: () => {
-              this.$message.error("短链接创建失败");
+            error: (xhr, status, error) => {
+              console.error('创建失败:', xhr.responseText, status, error);
+              this.$message.error("短链接创建失败：" + (xhr.responseText || error));
             },
             complete: () => {
               this.createLoading = false;
@@ -498,7 +532,7 @@
           });
         },
 
-                // 加载URL列表
+                        // 加载URL列表
         loadUrlList() {
           this.listLoading = true;
 
@@ -506,6 +540,21 @@
           const session = localStorage.getItem(SESSION_KEY);
           const sessionData = session ? JSON.parse(session) : {};
           const password = sessionData.password || '';
+
+          console.log('加载列表 - 密码:', password ? '已获取' : '未获取');
+
+          if (!password) {
+            this.$message.error('未获取到登录密码，请重新登录');
+            this.listLoading = false;
+            this.isLoggedIn = false;
+            return;
+          }
+
+          console.log('发送列表请求:', {
+            url: '/api/list',
+            page: this.currentPage,
+            pageSize: this.pageSize
+          });
 
           // 调用列表API
           $.ajax({
@@ -517,15 +566,18 @@
               password: password
             },
             success: (res) => {
+              console.log('列表响应:', res);
               if (res.code === 200) {
                 this.urlList = res.data.list || [];
                 this.total = res.data.total || 0;
+                console.log('列表数据:', this.urlList);
               } else {
                 this.$message.error('获取数据失败：' + res.message);
               }
             },
-            error: () => {
-              this.$message.error('获取数据失败');
+            error: (xhr, status, error) => {
+              console.error('列表获取失败:', xhr.responseText, status, error);
+              this.$message.error('获取数据失败：' + (xhr.responseText || error));
             },
             complete: () => {
               this.listLoading = false;
@@ -637,8 +689,8 @@
             },
             error: () => {
               this.$message.error('更新失败');
-            }
-          });
+              }
+            });
         },
 
         // 打开API文档
