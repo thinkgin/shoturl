@@ -2,6 +2,20 @@
 
 基于 Cloudflare Pages 的短链接服务，带有管理员登录和数据管理功能。
 
+## 界面预览
+
+### 主界面
+
+![主界面](image/main.png)
+
+### 创建结果展示
+
+![创建结果](image/image.png)
+
+### API 文档界面
+
+![API文档](image/apishow.png)
+
 ## 功能特性
 
 ### 🔐 管理员登录
@@ -143,20 +157,6 @@
 
 - **端点**: `GET /{shortKey}`
 - **响应**: 301 重定向到原始 URL
-
-## 界面预览
-
-### 主界面
-
-![主界面](image/main.png)
-
-### 创建结果展示
-
-![创建结果](image/image.png)
-
-### API 文档界面
-
-![API文档](image/apishow.png)
 
 ## 使用方法
 
