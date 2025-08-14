@@ -57,6 +57,16 @@ export async function onRequest(context) {
         });
       }
     }
+    // 不支持的方法
+    else {
+      return new Response(JSON.stringify({
+        Code: 405,
+        Message: 'Method not allowed'
+      }), {
+        status: 405,
+        headers: corsHeaders
+      });
+    }
 
     // 获取环境变量中的管理密码
     const adminPassword = env?.ADMIN_PASSWORD;
@@ -77,16 +87,6 @@ export async function onRequest(context) {
         Message: 'Invalid password'
       }), {
         status: 200,
-        headers: corsHeaders
-      });
-    }
-    // 不支持的方法
-    else {
-      return new Response(JSON.stringify({
-        Code: 405,
-        Message: 'Method not allowed'
-      }), {
-        status: 405,
         headers: corsHeaders
       });
     }
