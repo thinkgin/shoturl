@@ -89,8 +89,7 @@ export async function onRequest(context) {
         if (longUrl) {
           urlList.push({
             shortKey: keyInfo.name,
-            longUrl: longUrl,
-            createTime: keyInfo.metadata?.createTime || new Date(keyInfo.expiration || Date.now()).toLocaleString('zh-CN')
+            longUrl: longUrl
           });
         }
       } catch (error) {
@@ -98,8 +97,8 @@ export async function onRequest(context) {
       }
     }
 
-    // 按创建时间倒序排列
-    urlList.sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
+    // 按短码排序
+    urlList.sort((a, b) => a.shortKey.localeCompare(b.shortKey));
 
     return new Response(JSON.stringify({
       code: 200,

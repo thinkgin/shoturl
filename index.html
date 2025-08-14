@@ -92,7 +92,23 @@
               </div>
             </div>
 
-            <el-table :data="urlList" v-loading="listLoading" style="width: 100%">
+            <!-- 搜索区域 -->
+            <div class="search-area">
+              <el-input
+                v-model="searchKeyword"
+                placeholder="搜索原始链接..."
+                prefix-icon="el-icon-search"
+                clearable
+                @input="handleSearch"
+                @clear="handleSearch"
+                style="width: 300px;">
+              </el-input>
+              <span v-if="searchKeyword" class="search-result-info">
+                找到 {{ filteredUrlList.length }} 条结果
+              </span>
+            </div>
+
+                        <el-table :data="filteredUrlList" v-loading="listLoading" style="width: 100%">
               <el-table-column prop="shortKey" label="短码" width="120"></el-table-column>
               <el-table-column label="短链接" width="200">
                 <template slot-scope="scope">
@@ -108,7 +124,6 @@
                   </el-tooltip>
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" label="创建时间" width="180"></el-table-column>
               <el-table-column label="操作" width="220" fixed="right">
                 <template slot-scope="scope">
                   <div class="action-buttons">
@@ -310,10 +325,12 @@
 
           // 数据列表
           urlList: [],
+          filteredUrlList: [],
           listLoading: false,
           currentPage: 1,
           pageSize: 10,
           total: 0,
+          searchKeyword: '',
 
           // 编辑对话框
           editDialogVisible: false,
@@ -570,6 +587,8 @@
               if (res.code === 200) {
                 this.urlList = res.data.list || [];
                 this.total = res.data.total || 0;
+                // 初始化过滤列表
+                this.applyFilter();
                 console.log('列表数据:', this.urlList);
               } else {
                 this.$message.error('获取数据失败：' + res.message);
@@ -831,6 +850,24 @@
               this.testLoading.delete = false;
             }
           });
+        },
+
+        // 搜索处理
+        handleSearch() {
+          this.applyFilter();
+        },
+
+        // 应用过滤
+        applyFilter() {
+          if (!this.searchKeyword.trim()) {
+            this.filteredUrlList = [...this.urlList];
+          } else {
+            const keyword = this.searchKeyword.toLowerCase();
+            this.filteredUrlList = this.urlList.filter(item => {
+              return item.longUrl.toLowerCase().includes(keyword) ||
+                     item.shortKey.toLowerCase().includes(keyword);
+            });
+          }
         }
       }
     })
@@ -1070,6 +1107,19 @@
       box-shadow: -1px 0 8px rgba(0, 0, 0, 0.12);
     }
 
+        /* 搜索区域样式 */
+    .search-area {
+      padding: 15px 0;
+      border-bottom: 1px solid #ebeef5;
+      margin-bottom: 15px;
+    }
+
+    .search-result-info {
+      margin-left: 15px;
+      color: #909399;
+      font-size: 14px;
+    }
+
     /* 响应式API文档 */
     @media (max-width: 768px) {
       .api-docs-container {
@@ -1083,6 +1133,15 @@
       .test-result pre {
         font-size: 11px;
         padding: 10px;
+      }
+
+      .search-area .el-input {
+        width: 100% !important;
+      }
+
+      .search-result-info {
+        display: block;
+        margin: 10px 0 0 0;
       }
     }
   </style>
