@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Url Shortner - 短链接管理系统</title>
+  <link rel="icon" href="//img.znnu.com/favicon.ico" type="image/x-icon">
+
+  <!-- 字节静态资源CDN -->
+  <link href="//lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/element-ui/2.13.0/theme-chalk/index.css" type="text/css" rel="stylesheet" />
+  <script src="//lf6-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue/2.6.11/vue.min.js" type="application/javascript"></script>
+  <script src="//lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/element-ui/2.13.0/index.js" type="application/javascript"></script>
+  <script src="//lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/vue-clipboard2/0.3.1/vue-clipboard.min.js" type="application/javascript"></script>
+  <script src="//lf3-cdn-tos.bytecdntp.com/cdn/expire-1-Y/jquery/3.6.0/jquery.min.js" type="application/javascript"></script>
+  <!-- 字节静态资源CDN -->
+</head>
+
+<body>
+  <div id="app">
+    <!-- 登录页面 -->
+    <div v-if="!isLoggedIn" class="login-container">
+      <el-card class="login-card">
+        <div slot="header" class="clearfix">
+          <span class="login-title">管理员登录</span>
+        </div>
+        <el-form :model="loginForm" :rules="loginRules" ref="loginForm">
+          <el-form-item prop="password">
+            <el-input
+              v-model="loginForm.password"
+              type="password"
+              placeholder="请输入管理密码"
+              @keyup.enter.native="handleLogin"
+              show-password>
+            </el-input>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleLogin" :loading="loginLoading" style="width: 100%;">
+              登录
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+    </div>
+
+    <!-- 管理界面 -->
+    <div v-if="isLoggedIn" class="admin-container">
+      <el-container>
+        <el-header class="admin-header">
+          <div class="header-content">
+            <h1>Url Shortner</h1>
+            <el-button type="text" @click="handleLogout" class="logout-btn">退出登录</el-button>
+          </div>
+        </el-header>
+        <el-main>
+          <!-- 添加短链接区域 -->
+          <el-card class="add-url-card">
+            <div slot="header" class="clearfix">
+              <span>添加短链接</span>
+            </div>
+            <el-form :model="urlForm" inline>
+              <el-form-item label="长链接">
+                <el-input
+                  v-model="urlForm.longUrl"
+                  placeholder="请输入要缩短的URL"
+                  style="width: 400px;"
+                  @keyup.enter.native="createShortUrl">
+                </el-input>
+              </el-form-item>
+              <el-form-item label="自定义短码">
+                <el-input
+                  v-model="urlForm.shortKey"
+                  placeholder="可选，留空自动生成"
+                  style="width: 200px;">
+                </el-input>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="createShortUrl" :loading="createLoading">
+                  缩短
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </el-card>
+
+          <!-- 数据列表区域 -->
+          <el-card class="list-card">
+            <div slot="header" class="clearfix">
+              <span>短链接列表</span>
+              <el-button style="float: right; padding: 3px 0" type="text" @click="loadUrlList">刷新</el-button>
+            </div>
+
+            <el-table :data="urlList" v-loading="listLoading" style="width: 100%">
+              <el-table-column prop="shortKey" label="短码" width="120"></el-table-column>
+              <el-table-column label="短链接" width="200">
+                <template slot-scope="scope">
+                  <el-link :href="getShortUrl(scope.row.shortKey)" target="_blank">
+                    {{ getShortUrl(scope.row.shortKey) }}
+                  </el-link>
+                </template>
+              </el-table-column>
+              <el-table-column prop="longUrl" label="原始链接" min-width="300">
+                <template slot-scope="scope">
+                  <el-tooltip :content="scope.row.longUrl" placement="top">
+                    <div class="url-text">{{ scope.row.longUrl }}</div>
+                  </el-tooltip>
+                </template>
+              </el-table-column>
+              <el-table-column prop="createTime" label="创建时间" width="180"></el-table-column>
+              <el-table-column label="操作" width="200">
+                <template slot-scope="scope">
+                  <el-button size="mini" @click="copyToClipboard(getShortUrl(scope.row.shortKey))">复制</el-button>
+                  <el-button size="mini" type="primary" @click="editUrl(scope.row)">编辑</el-button>
+                  <el-button size="mini" type="danger" @click="deleteUrl(scope.row.shortKey)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <!-- 分页 -->
+            <el-pagination
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
+              :current-page="currentPage"
+              :page-sizes="[10, 20, 50, 100]"
+              :page-size="pageSize"
+              layout="total, sizes, prev, pager, next, jumper"
+              :total="total"
+              style="margin-top: 20px; text-align: right;">
+            </el-pagination>
+          </el-card>
+        </el-main>
+      </el-container>
+    </div>
+
+    <!-- 编辑对话框 -->
+    <el-dialog title="编辑短链接" :visible.sync="editDialogVisible" width="500px">
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="短码">
+          <el-input v-model="editForm.shortKey" disabled></el-input>
+        </el-form-item>
+        <el-form-item label="原始链接">
+          <el-input v-model="editForm.longUrl" type="textarea" :rows="3"></el-input>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="editDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="updateUrl">确 定</el-button>
+      </div>
+    </el-dialog>
+  </div>
+
+ <script>
+    const ADMIN_PASSWORD = 'wuweixiang';
+    const SESSION_KEY = 'shorturl_admin_session';
+
+    let app = new Vue({
+      el: "#app",
+      data() {
+        return {
+          // 登录相关
+          isLoggedIn: false,
+          loginLoading: false,
+          loginForm: {
+            password: ''
+          },
+          loginRules: {
+            password: [
+              { required: true, message: '请输入密码', trigger: 'blur' }
+            ]
+          },
+
+          // URL管理相关
+          urlForm: {
+            longUrl: '',
+            shortKey: ''
+          },
+          createLoading: false,
+
+          // 数据列表
+          urlList: [],
+          listLoading: false,
+          currentPage: 1,
+          pageSize: 10,
+          total: 0,
+
+          // 编辑对话框
+          editDialogVisible: false,
+          editForm: {
+            shortKey: '',
+            longUrl: ''
+          }
+        }
+      },
+      created() {
+        // 检查是否已登录
+        this.checkLoginStatus();
+      },
+      mounted() {
+        if (this.isLoggedIn) {
+          this.loadUrlList();
+        }
+      },
+      methods: {
+        // 检查登录状态
+        checkLoginStatus() {
+          const session = localStorage.getItem(SESSION_KEY);
+          if (session) {
+            const sessionData = JSON.parse(session);
+            const now = new Date().getTime();
+            // 检查会话是否过期（24小时）
+            if (now - sessionData.timestamp < 24 * 60 * 60 * 1000) {
+              this.isLoggedIn = true;
+            } else {
+              localStorage.removeItem(SESSION_KEY);
+            }
+          }
+        },
+
+        // 登录处理
+        handleLogin() {
+          this.$refs.loginForm.validate((valid) => {
+            if (valid) {
+              this.loginLoading = true;
+
+              // 模拟登录延迟
+              setTimeout(() => {
+                if (this.loginForm.password === ADMIN_PASSWORD) {
+                  this.isLoggedIn = true;
+                  // 保存会话
+                  const sessionData = {
+                    timestamp: new Date().getTime(),
+                    logged: true
+                  };
+                  localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
+                  this.$message.success('登录成功！');
+                  this.loadUrlList();
+                } else {
+                  this.$message.error('密码错误！');
+                }
+                this.loginLoading = false;
+              }, 500);
+            }
+          });
+        },
+
+        // 退出登录
+        handleLogout() {
+          this.$confirm('确定要退出登录吗？', '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => {
+            this.isLoggedIn = false;
+            localStorage.removeItem(SESSION_KEY);
+            this.urlList = [];
+            this.loginForm.password = '';
+            this.$message.success('已退出登录');
+          });
+        },
+
+        // 创建短链接
+        createShortUrl() {
+          if (!this.urlForm.longUrl.trim()) {
+            this.$message.warning('请输入长链接');
+            return;
+          }
+
+          let re = new RegExp('http(s*)://[^\s]*');
+          if (re.exec(this.urlForm.longUrl) === null) {
+            this.$message.warning('请输入正确格式的长链接');
+            return;
+          }
+
+          this.createLoading = true;
+
+          let data = new URLSearchParams();
+          data.append("longUrl", btoa(this.urlForm.longUrl));
+          data.append("shortKey", this.urlForm.shortKey || '');
+          data.append("password", "wuweixiang");
+
+          $.ajax({
+            url: '/short',
+            type: 'POST',
+            data: data.toString(),
+            contentType: 'application/x-www-form-urlencoded; charset=utf-8',
+            success: (res) => {
+              if (res.Code === 1 && res.ShortUrl !== "") {
+                this.$message.success("短链接创建成功！");
+                this.urlForm.longUrl = '';
+                this.urlForm.shortKey = '';
+                this.loadUrlList(); // 刷新列表
+              } else {
+                this.$message.error("短链接创建失败：" + res.Message);
+              }
+            },
+            error: () => {
+              this.$message.error("短链接创建失败");
+            },
+            complete: () => {
+              this.createLoading = false;
+            }
+          });
+        },
+
+        // 加载URL列表
+        loadUrlList() {
+          this.listLoading = true;
+
+          // 调用列表API
+          $.ajax({
+            url: '/api/list',
+            type: 'GET',
+            data: {
+              page: this.currentPage,
+              pageSize: this.pageSize,
+              password: 'wuweixiang'
+            },
+            success: (res) => {
+              if (res.code === 200) {
+                this.urlList = res.data.list || [];
+                this.total = res.data.total || 0;
+              } else {
+                this.$message.error('获取数据失败：' + res.message);
+              }
+            },
+            error: () => {
+              this.$message.error('获取数据失败');
+            },
+            complete: () => {
+              this.listLoading = false;
+            }
+          });
+        },
+
+        // 删除URL
+        deleteUrl(shortKey) {
+          this.$confirm(`确定要删除短码 "${shortKey}" 吗？`, '确认删除', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => {
+            $.ajax({
+              url: '/api/delete',
+              type: 'POST',
+              data: {
+                shortKey: shortKey,
+                password: 'wuweixiang'
+              },
+              success: (res) => {
+                if (res.code === 200) {
+                  this.$message.success('删除成功');
+                  this.loadUrlList();
+                } else {
+                  this.$message.error('删除失败：' + res.message);
+                }
+              },
+              error: () => {
+                this.$message.error('删除失败');
+              }
+            });
+          });
+        },
+
+        // 复制到剪贴板
+        copyToClipboard(text) {
+          this.$copyText(text).then(() => {
+            this.$message.success('已复制到剪贴板');
+          }).catch(() => {
+            this.$message.error('复制失败');
+          });
+        },
+
+        // 获取短链接URL
+        getShortUrl(shortKey) {
+          return `${window.location.origin}/${shortKey}`;
+        },
+
+        // 分页处理
+        handleSizeChange(val) {
+          this.pageSize = val;
+          this.currentPage = 1;
+          this.loadUrlList();
+        },
+
+        handleCurrentChange(val) {
+          this.currentPage = val;
+          this.loadUrlList();
+        },
+
+        // 编辑URL
+        editUrl(row) {
+          this.editForm.shortKey = row.shortKey;
+          this.editForm.longUrl = row.longUrl;
+          this.editDialogVisible = true;
+        },
+
+        // 更新URL
+        updateUrl() {
+          if (!this.editForm.longUrl.trim()) {
+            this.$message.warning('请输入长链接');
+            return;
+          }
+
+          let re = new RegExp('http(s*)://[^\s]*');
+          if (re.exec(this.editForm.longUrl) === null) {
+            this.$message.warning('请输入正确格式的长链接');
+            return;
+          }
+
+          $.ajax({
+            url: '/api/update',
+            type: 'POST',
+            data: {
+              shortKey: this.editForm.shortKey,
+              longUrl: this.editForm.longUrl,
+              password: 'wuweixiang'
+            },
+            success: (res) => {
+              if (res.code === 200) {
+                this.$message.success('更新成功');
+                this.editDialogVisible = false;
+                this.loadUrlList();
+              } else {
+                this.$message.error('更新失败：' + res.message);
+              }
+            },
+            error: () => {
+              this.$message.error('更新失败');
+            }
+          });
+        }
+      }
+    })
+  </script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* 登录页面样式 */
+    .login-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 400px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 15px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .login-title {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+      text-align: center;
+    }
+
+    /* 管理界面样式 */
+    .admin-container {
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+
+    .admin-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      height: 60px !important;
+      line-height: 60px;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 100%;
+      padding: 0 20px;
+    }
+
+    .header-content h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: normal;
+    }
+
+    .logout-btn {
+      color: white !important;
+      font-size: 14px;
+    }
+
+    .logout-btn:hover {
+      color: #f0f0f0 !important;
+    }
+
+    /* 卡片样式 */
+    .add-url-card {
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    .list-card {
+      border-radius: 8px;
+      box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    }
+
+    /* 表格样式 */
+    .el-table {
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .url-text {
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 分页样式 */
+    .el-pagination {
+      padding: 20px 0;
+    }
+
+    /* 表单样式优化 */
+    .el-form--inline .el-form-item {
+      margin-bottom: 10px;
+    }
+
+    /* 按钮样式 */
+    .el-button--primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+    }
+
+    .el-button--primary:hover {
+      background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    }
+
+    /* 响应式设计 */
+    @media (max-width: 768px) {
+      .header-content {
+        padding: 0 10px;
+      }
+
+      .header-content h1 {
+        font-size: 20px;
+      }
+
+      .el-form--inline .el-form-item {
+        display: block;
+        margin-right: 0;
+      }
+
+      .el-form--inline .el-form-item .el-input {
+        width: 100% !important;
+      }
+
+      .url-text {
+        max-width: 200px;
+      }
+    }
+
+    /* 链接样式 */
+    .el-link {
+      font-size: 12px;
+    }
+
+    /* 对话框样式 */
+    .el-dialog {
+      border-radius: 8px;
+    }
+
+    /* 卡片头部样式 */
+    .el-card__header {
+      background: #fafafa;
+      border-bottom: 1px solid #ebeef5;
+    }
+
+    /* 表格行悬停效果 */
+    .el-table tbody tr:hover > td {
+      background-color: #f5f7fa !important;
+    }
+  </style>
+</body>
+
+</html>
