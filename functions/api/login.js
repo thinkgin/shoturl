@@ -47,7 +47,7 @@ export async function onRequest(context) {
     try {
       // 处理表单数据或JSON数据
       const contentType = request.headers.get('content-type') || '';
-      
+
       if (contentType.includes('application/json')) {
         const requestData = await request.json();
         password = requestData.password;
