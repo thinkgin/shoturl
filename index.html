@@ -86,7 +86,10 @@
           <el-card class="list-card">
             <div slot="header" class="clearfix">
               <span>短链接列表</span>
-              <el-button style="float: right; padding: 3px 0" type="text" @click="loadUrlList">刷新</el-button>
+              <div style="float: right;">
+                <el-button style="padding: 3px 0; margin-right: 10px;" type="text" @click="openApiDocs">API文档</el-button>
+                <el-button style="padding: 3px 0" type="text" @click="loadUrlList">刷新</el-button>
+              </div>
             </div>
 
             <el-table :data="urlList" v-loading="listLoading" style="width: 100%">
@@ -106,11 +109,13 @@
                 </template>
               </el-table-column>
               <el-table-column prop="createTime" label="创建时间" width="180"></el-table-column>
-              <el-table-column label="操作" width="200">
+              <el-table-column label="操作" width="220" fixed="right">
                 <template slot-scope="scope">
-                  <el-button size="mini" @click="copyToClipboard(getShortUrl(scope.row.shortKey))">复制</el-button>
-                  <el-button size="mini" type="primary" @click="editUrl(scope.row)">编辑</el-button>
-                  <el-button size="mini" type="danger" @click="deleteUrl(scope.row.shortKey)">删除</el-button>
+                  <div class="action-buttons">
+                    <el-button size="mini" @click="copyToClipboard(getShortUrl(scope.row.shortKey))">复制</el-button>
+                    <el-button size="mini" type="primary" @click="editUrl(scope.row)">编辑</el-button>
+                    <el-button size="mini" type="danger" @click="deleteUrl(scope.row.shortKey)">删除</el-button>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -144,6 +149,135 @@
       <div slot="footer" class="dialog-footer">
         <el-button @click="editDialogVisible = false">取 消</el-button>
         <el-button type="primary" @click="updateUrl">确 定</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- API文档对话框 -->
+    <el-dialog title="API 文档" :visible.sync="apiDocsVisible" width="80%" top="5vh">
+      <div class="api-docs-container">
+        <el-tabs v-model="activeApiTab" type="border-card">
+          <!-- 登录API -->
+          <el-tab-pane label="管理员登录" name="login">
+            <div class="api-section">
+              <h3>POST /api/login</h3>
+              <p><strong>描述：</strong>管理员登录验证</p>
+              <h4>请求参数：</h4>
+              <el-table :data="loginApiParams" size="small" style="margin-bottom: 20px;">
+                <el-table-column prop="name" label="参数名" width="120"></el-table-column>
+                <el-table-column prop="type" label="类型" width="80"></el-table-column>
+                <el-table-column prop="required" label="必需" width="60"></el-table-column>
+                <el-table-column prop="description" label="描述"></el-table-column>
+              </el-table>
+              <h4>在线测试：</h4>
+              <el-form inline>
+                <el-form-item label="密码">
+                  <el-input v-model="testLogin.password" type="password" placeholder="输入管理密码"></el-input>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="testLoginApi" :loading="testLoading.login">测试登录</el-button>
+                </el-form-item>
+              </el-form>
+              <div v-if="testResults.login" class="test-result">
+                <h4>响应结果：</h4>
+                <pre>{{ testResults.login }}</pre>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- 创建短链接API -->
+          <el-tab-pane label="创建短链接" name="create">
+            <div class="api-section">
+              <h3>POST /short</h3>
+              <p><strong>描述：</strong>创建新的短链接</p>
+              <h4>请求参数：</h4>
+              <el-table :data="createApiParams" size="small" style="margin-bottom: 20px;">
+                <el-table-column prop="name" label="参数名" width="120"></el-table-column>
+                <el-table-column prop="type" label="类型" width="80"></el-table-column>
+                <el-table-column prop="required" label="必需" width="60"></el-table-column>
+                <el-table-column prop="description" label="描述"></el-table-column>
+              </el-table>
+              <h4>在线测试：</h4>
+              <el-form inline>
+                <el-form-item label="长链接">
+                  <el-input v-model="testCreate.longUrl" placeholder="https://example.com" style="width: 300px;"></el-input>
+                </el-form-item>
+                <el-form-item label="自定义短码">
+                  <el-input v-model="testCreate.shortKey" placeholder="可选" style="width: 150px;"></el-input>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="testCreateApi" :loading="testLoading.create">测试创建</el-button>
+                </el-form-item>
+              </el-form>
+              <div v-if="testResults.create" class="test-result">
+                <h4>响应结果：</h4>
+                <pre>{{ testResults.create }}</pre>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- 获取列表API -->
+          <el-tab-pane label="获取列表" name="list">
+            <div class="api-section">
+              <h3>GET /api/list</h3>
+              <p><strong>描述：</strong>获取短链接列表（分页）</p>
+              <h4>请求参数：</h4>
+              <el-table :data="listApiParams" size="small" style="margin-bottom: 20px;">
+                <el-table-column prop="name" label="参数名" width="120"></el-table-column>
+                <el-table-column prop="type" label="类型" width="80"></el-table-column>
+                <el-table-column prop="required" label="必需" width="60"></el-table-column>
+                <el-table-column prop="description" label="描述"></el-table-column>
+              </el-table>
+              <h4>在线测试：</h4>
+              <el-form inline>
+                <el-form-item label="页码">
+                  <el-input-number v-model="testList.page" :min="1" style="width: 100px;"></el-input-number>
+                </el-form-item>
+                <el-form-item label="每页数量">
+                  <el-select v-model="testList.pageSize" style="width: 100px;">
+                    <el-option label="10" :value="10"></el-option>
+                    <el-option label="20" :value="20"></el-option>
+                    <el-option label="50" :value="50"></el-option>
+                  </el-select>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="testListApi" :loading="testLoading.list">测试获取</el-button>
+                </el-form-item>
+              </el-form>
+              <div v-if="testResults.list" class="test-result">
+                <h4>响应结果：</h4>
+                <pre>{{ testResults.list }}</pre>
+              </div>
+            </div>
+          </el-tab-pane>
+
+          <!-- 删除API -->
+          <el-tab-pane label="删除短链接" name="delete">
+            <div class="api-section">
+              <h3>POST /api/delete</h3>
+              <p><strong>描述：</strong>删除指定的短链接</p>
+              <h4>请求参数：</h4>
+              <el-table :data="deleteApiParams" size="small" style="margin-bottom: 20px;">
+                <el-table-column prop="name" label="参数名" width="120"></el-table-column>
+                <el-table-column prop="type" label="类型" width="80"></el-table-column>
+                <el-table-column prop="required" label="必需" width="60"></el-table-column>
+                <el-table-column prop="description" label="描述"></el-table-column>
+              </el-table>
+              <h4>在线测试：</h4>
+              <el-form inline>
+                <el-form-item label="短码">
+                  <el-input v-model="testDelete.shortKey" placeholder="要删除的短码"></el-input>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="danger" @click="testDeleteApi" :loading="testLoading.delete">测试删除</el-button>
+                </el-form-item>
+              </el-form>
+              <div v-if="testResults.delete" class="test-result">
+                <h4>响应结果：</h4>
+                <pre>{{ testResults.delete }}</pre>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </el-dialog>
   </div>
@@ -186,6 +320,51 @@
           editForm: {
             shortKey: '',
             longUrl: ''
+          },
+
+          // API文档相关
+          apiDocsVisible: false,
+          activeApiTab: 'login',
+
+          // API参数定义
+          loginApiParams: [
+            { name: 'password', type: 'string', required: '是', description: '管理员密码' }
+          ],
+          createApiParams: [
+            { name: 'longUrl', type: 'string', required: '是', description: 'Base64编码的长链接' },
+            { name: 'shortKey', type: 'string', required: '否', description: '自定义短码（可选）' },
+            { name: 'password', type: 'string', required: '是', description: '管理员密码' }
+          ],
+          listApiParams: [
+            { name: 'page', type: 'number', required: '否', description: '页码，默认1' },
+            { name: 'pageSize', type: 'number', required: '否', description: '每页数量，默认10' },
+            { name: 'password', type: 'string', required: '是', description: '管理员密码' }
+          ],
+          deleteApiParams: [
+            { name: 'shortKey', type: 'string', required: '是', description: '要删除的短码' },
+            { name: 'password', type: 'string', required: '是', description: '管理员密码' }
+          ],
+
+          // 测试数据
+          testLogin: { password: '' },
+          testCreate: { longUrl: '', shortKey: '' },
+          testList: { page: 1, pageSize: 10 },
+          testDelete: { shortKey: '' },
+
+          // 测试状态
+          testLoading: {
+            login: false,
+            create: false,
+            list: false,
+            delete: false
+          },
+
+          // 测试结果
+          testResults: {
+            login: '',
+            create: '',
+            list: '',
+            delete: ''
           }
         }
       },
@@ -460,6 +639,146 @@
               this.$message.error('更新失败');
             }
           });
+        },
+
+        // 打开API文档
+        openApiDocs() {
+          this.apiDocsVisible = true;
+        },
+
+        // 测试登录API
+        testLoginApi() {
+          if (!this.testLogin.password) {
+            this.$message.warning('请输入密码');
+            return;
+          }
+
+          this.testLoading.login = true;
+          $.ajax({
+            url: '/api/login',
+            type: 'POST',
+            data: { password: this.testLogin.password },
+            success: (res) => {
+              this.testResults.login = JSON.stringify(res, null, 2);
+            },
+            error: (xhr) => {
+              this.testResults.login = JSON.stringify({
+                error: 'Request failed',
+                status: xhr.status,
+                message: xhr.responseText
+              }, null, 2);
+            },
+            complete: () => {
+              this.testLoading.login = false;
+            }
+          });
+        },
+
+        // 测试创建API
+        testCreateApi() {
+          if (!this.testCreate.longUrl) {
+            this.$message.warning('请输入长链接');
+            return;
+          }
+
+          // 从localStorage获取保存的密码
+          const session = localStorage.getItem(SESSION_KEY);
+          const sessionData = session ? JSON.parse(session) : {};
+          const password = sessionData.password || '';
+
+          this.testLoading.create = true;
+          let data = new URLSearchParams();
+          data.append("longUrl", btoa(this.testCreate.longUrl));
+          data.append("shortKey", this.testCreate.shortKey || '');
+          data.append("password", password);
+
+          $.ajax({
+            url: '/short',
+            type: 'POST',
+            data: data.toString(),
+            contentType: 'application/x-www-form-urlencoded; charset=utf-8',
+            success: (res) => {
+              this.testResults.create = JSON.stringify(res, null, 2);
+            },
+            error: (xhr) => {
+              this.testResults.create = JSON.stringify({
+                error: 'Request failed',
+                status: xhr.status,
+                message: xhr.responseText
+              }, null, 2);
+            },
+            complete: () => {
+              this.testLoading.create = false;
+            }
+          });
+        },
+
+        // 测试列表API
+        testListApi() {
+          // 从localStorage获取保存的密码
+          const session = localStorage.getItem(SESSION_KEY);
+          const sessionData = session ? JSON.parse(session) : {};
+          const password = sessionData.password || '';
+
+          this.testLoading.list = true;
+          $.ajax({
+            url: '/api/list',
+            type: 'GET',
+            data: {
+              page: this.testList.page,
+              pageSize: this.testList.pageSize,
+              password: password
+            },
+            success: (res) => {
+              this.testResults.list = JSON.stringify(res, null, 2);
+            },
+            error: (xhr) => {
+              this.testResults.list = JSON.stringify({
+                error: 'Request failed',
+                status: xhr.status,
+                message: xhr.responseText
+              }, null, 2);
+            },
+            complete: () => {
+              this.testLoading.list = false;
+            }
+          });
+        },
+
+        // 测试删除API
+        testDeleteApi() {
+          if (!this.testDelete.shortKey) {
+            this.$message.warning('请输入短码');
+            return;
+          }
+
+          // 从localStorage获取保存的密码
+          const session = localStorage.getItem(SESSION_KEY);
+          const sessionData = session ? JSON.parse(session) : {};
+          const password = sessionData.password || '';
+
+          this.testLoading.delete = true;
+          $.ajax({
+            url: '/api/delete',
+            type: 'POST',
+            data: {
+              shortKey: this.testDelete.shortKey,
+              password: password
+            },
+            success: (res) => {
+              this.testResults.delete = JSON.stringify(res, null, 2);
+            },
+            error: (xhr) => {
+              this.testResults.delete = JSON.stringify({
+                error: 'Request failed',
+                status: xhr.status,
+                message: xhr.responseText
+              }, null, 2);
+            },
+            complete: () => {
+              this.testLoading.delete = false;
+            }
+          });
         }
       }
     })
@@ -624,6 +943,95 @@
     /* 表格行悬停效果 */
     .el-table tbody tr:hover > td {
       background-color: #f5f7fa !important;
+    }
+
+    /* 操作按钮样式 */
+    .action-buttons {
+      white-space: nowrap;
+    }
+
+    .action-buttons .el-button {
+      margin-right: 5px;
+    }
+
+    .action-buttons .el-button:last-child {
+      margin-right: 0;
+    }
+
+    /* API文档样式 */
+    .api-docs-container {
+      height: 70vh;
+      overflow-y: auto;
+    }
+
+    .api-section {
+      padding: 20px;
+    }
+
+    .api-section h3 {
+      color: #409EFF;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+
+    .api-section h4 {
+      color: #333;
+      margin: 20px 0 10px 0;
+      font-size: 14px;
+    }
+
+    .api-section p {
+      margin: 10px 0;
+      color: #666;
+    }
+
+    .test-result {
+      margin-top: 20px;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      background-color: #fafafa;
+    }
+
+    .test-result h4 {
+      margin: 0;
+      padding: 10px 15px;
+      background-color: #f5f7fa;
+      border-bottom: 1px solid #dcdfe6;
+      font-size: 14px;
+    }
+
+    .test-result pre {
+      margin: 0;
+      padding: 15px;
+      background-color: #fff;
+      color: #333;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    /* 固定表格列样式 */
+    .el-table .el-table__fixed-right {
+      box-shadow: -1px 0 8px rgba(0, 0, 0, 0.12);
+    }
+
+    /* 响应式API文档 */
+    @media (max-width: 768px) {
+      .api-docs-container {
+        height: 60vh;
+      }
+
+      .api-section {
+        padding: 15px;
+      }
+
+      .test-result pre {
+        font-size: 11px;
+        padding: 10px;
+      }
     }
   </style>
 </body>
