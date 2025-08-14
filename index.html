@@ -167,6 +167,94 @@
       </div>
     </el-dialog>
 
+    <!-- 创建结果对话框 -->
+    <el-dialog title="短链接创建成功" :visible.sync="createResultVisible" width="600px">
+      <div class="result-container">
+        <el-alert
+          title="创建成功！"
+          type="success"
+          :closable="false"
+          show-icon>
+        </el-alert>
+
+        <div class="result-item">
+          <label>短链接：</label>
+          <div class="result-value">
+            <el-input
+              :value="createResult.ShortUrl"
+              readonly
+              ref="shortUrlInput">
+              <el-button
+                slot="append"
+                icon="el-icon-document-copy"
+                @click="copyResult('shortUrl')"
+                title="复制短链接">
+              </el-button>
+            </el-input>
+          </div>
+        </div>
+
+        <div class="result-item">
+          <label>原始链接：</label>
+          <div class="result-value">
+            <el-input
+              :value="createResult.LongUrl"
+              readonly
+              ref="longUrlInput">
+              <el-button
+                slot="append"
+                icon="el-icon-document-copy"
+                @click="copyResult('longUrl')"
+                title="复制原始链接">
+              </el-button>
+            </el-input>
+          </div>
+        </div>
+
+        <div class="result-item">
+          <label>短码：</label>
+          <div class="result-value">
+            <el-input
+              :value="createResult.ShortKey"
+              readonly
+              ref="shortKeyInput">
+              <el-button
+                slot="append"
+                icon="el-icon-document-copy"
+                @click="copyResult('shortKey')"
+                title="复制短码">
+              </el-button>
+            </el-input>
+          </div>
+        </div>
+
+        <div class="result-item">
+          <label>完整响应：</label>
+          <div class="result-value">
+            <el-input
+              type="textarea"
+              :value="createResult.fullResponse"
+              readonly
+              :rows="6"
+              ref="fullResponseInput">
+            </el-input>
+            <el-button
+              style="margin-top: 10px;"
+              icon="el-icon-document-copy"
+              @click="copyResult('fullResponse')"
+              size="small">
+              复制完整响应
+            </el-button>
+          </div>
+        </div>
+      </div>
+
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="createResultVisible = false">关闭</el-button>
+        <el-button type="primary" @click="visitShortUrl">访问短链接</el-button>
+      </div>
+    </el-dialog>
+
     <!-- API文档对话框 -->
     <el-dialog title="API 文档" :visible.sync="apiDocsVisible" width="80%" top="5vh">
       <div class="api-docs-container">
@@ -337,6 +425,15 @@
           editForm: {
             shortKey: '',
             longUrl: ''
+          },
+
+          // 创建结果对话框
+          createResultVisible: false,
+          createResult: {
+            ShortUrl: '',
+            LongUrl: '',
+            ShortKey: '',
+            fullResponse: ''
           },
 
           // API文档相关
@@ -528,18 +625,33 @@
               type: 'POST',
               data: data.toString(),
               contentType: 'application/x-www-form-urlencoded; charset=utf-8',
-                          success: (res) => {
+              success: (res) => {
               console.log('创建响应:', res);
-              if (res.Code === 1 && res.ShortUrl !== "") {
-                this.$message.success("短链接创建成功！");
+                if (res.Code === 1 && res.ShortUrl !== "") {
+                // 保存结果数据
+                this.createResult = {
+                  ShortUrl: res.ShortUrl,
+                  LongUrl: res.LongUrl,
+                  ShortKey: res.ShortKey,
+                  fullResponse: JSON.stringify(res, null, 2)
+                };
+
+                // 显示结果模态框
+                this.createResultVisible = true;
+
+                // 清空表单
                 this.urlForm.longUrl = '';
                 this.urlForm.shortKey = '';
+
                 // 清空搜索条件，确保新创建的链接能显示
                 this.searchKeyword = '';
                 // 重置到第一页
                 this.currentPage = 1;
-                // 刷新列表
-                this.loadUrlList();
+
+                // 延迟刷新列表，给KV一些时间同步
+                setTimeout(() => {
+                  this.loadUrlList();
+                }, 1000);
               } else {
                 this.$message.error("短链接创建失败：" + res.Message);
               }
@@ -873,6 +985,44 @@
                      item.shortKey.toLowerCase().includes(keyword);
             });
           }
+        },
+
+        // 复制结果数据
+        copyResult(type) {
+          let textToCopy = '';
+          let successMessage = '';
+
+          switch(type) {
+            case 'shortUrl':
+              textToCopy = this.createResult.ShortUrl;
+              successMessage = '短链接已复制';
+              break;
+            case 'longUrl':
+              textToCopy = this.createResult.LongUrl;
+              successMessage = '原始链接已复制';
+              break;
+            case 'shortKey':
+              textToCopy = this.createResult.ShortKey;
+              successMessage = '短码已复制';
+              break;
+            case 'fullResponse':
+              textToCopy = this.createResult.fullResponse;
+              successMessage = '完整响应已复制';
+              break;
+          }
+
+          this.$copyText(textToCopy).then(() => {
+            this.$message.success(successMessage);
+          }).catch(() => {
+            this.$message.error('复制失败');
+          });
+        },
+
+        // 访问短链接
+        visitShortUrl() {
+          if (this.createResult.ShortUrl) {
+            window.open(this.createResult.ShortUrl, '_blank');
+          }
         }
       }
     })
@@ -1145,6 +1295,58 @@
       font-size: 14px;
     }
 
+    /* 创建结果模态框样式 */
+    .result-container {
+      padding: 10px 0;
+    }
+
+    .result-item {
+      margin-bottom: 20px;
+    }
+
+    .result-item label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #333;
+      font-size: 14px;
+    }
+
+    .result-value {
+      position: relative;
+    }
+
+    .result-container .el-alert {
+      margin-bottom: 20px;
+    }
+
+    .result-container .el-input {
+      margin-bottom: 0;
+    }
+
+    .result-container .el-textarea {
+      margin-bottom: 0;
+    }
+
+    .result-container .el-input__inner,
+    .result-container .el-textarea__inner {
+      background-color: #f8f9fa;
+      border: 1px solid #e9ecef;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+    }
+
+    .result-container .el-input__inner {
+      cursor: text;
+      user-select: all;
+    }
+
+    .result-container .el-textarea__inner {
+      cursor: text;
+      user-select: all;
+      line-height: 1.5;
+    }
+
     /* 响应式API文档 */
     @media (max-width: 768px) {
       .api-docs-container {
@@ -1179,6 +1381,20 @@
       .api-section .el-input-number,
       .api-section .el-select {
         width: 100% !important;
+      }
+
+      /* 结果模态框响应式 */
+      .result-container .el-dialog {
+        width: 95% !important;
+      }
+
+      .result-item label {
+        font-size: 13px;
+      }
+
+      .result-container .el-input__inner,
+      .result-container .el-textarea__inner {
+        font-size: 12px;
       }
     }
   </style>
