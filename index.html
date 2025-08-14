@@ -528,13 +528,18 @@
               type: 'POST',
               data: data.toString(),
               contentType: 'application/x-www-form-urlencoded; charset=utf-8',
-              success: (res) => {
+                          success: (res) => {
               console.log('创建响应:', res);
-                if (res.Code === 1 && res.ShortUrl !== "") {
+              if (res.Code === 1 && res.ShortUrl !== "") {
                 this.$message.success("短链接创建成功！");
                 this.urlForm.longUrl = '';
                 this.urlForm.shortKey = '';
-                this.loadUrlList(); // 刷新列表
+                // 清空搜索条件，确保新创建的链接能显示
+                this.searchKeyword = '';
+                // 重置到第一页
+                this.currentPage = 1;
+                // 刷新列表
+                this.loadUrlList();
               } else {
                 this.$message.error("短链接创建失败：" + res.Message);
               }

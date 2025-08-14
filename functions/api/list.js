@@ -85,11 +85,25 @@ export async function onRequest(context) {
     const urlList = [];
     for (const keyInfo of pageKeys) {
       try {
-        const longUrl = await kv.get(keyInfo.name);
-        if (longUrl) {
+        const storedData = await kv.get(keyInfo.name);
+        if (storedData) {
+          let longUrl, timestamp = 0;
+
+          try {
+            // 尝试解析JSON格式的新数据
+            const urlData = JSON.parse(storedData);
+            longUrl = urlData.url;
+            timestamp = urlData.timestamp || 0;
+          } catch (error) {
+            // 如果解析失败，说明是旧格式的纯URL字符串
+            longUrl = storedData;
+            timestamp = 0; // 旧数据没有时间戳，设为0
+          }
+
           urlList.push({
             shortKey: keyInfo.name,
-            longUrl: longUrl
+            longUrl: longUrl,
+            timestamp: timestamp
           });
         }
       } catch (error) {
@@ -97,8 +111,8 @@ export async function onRequest(context) {
       }
     }
 
-    // 按短码排序
-    urlList.sort((a, b) => a.shortKey.localeCompare(b.shortKey));
+    // 按时间戳倒序排序（新创建的在前面）
+    urlList.sort((a, b) => b.timestamp - a.timestamp);
 
     return new Response(JSON.stringify({
       code: 200,

@@ -117,8 +117,8 @@ export async function onRequest(context) {
     }
 
     // 检查短链接是否存在
-    const existingUrl = await kv.get(shortKey);
-    if (!existingUrl) {
+    const existingData = await kv.get(shortKey);
+    if (!existingData) {
       return new Response(JSON.stringify({
         code: 404,
         message: 'Short link not found'
@@ -128,15 +128,34 @@ export async function onRequest(context) {
       });
     }
 
-    // 更新短链接
-    await kv.put(shortKey, longUrl);
+    let oldUrl;
+    let originalTimestamp = Date.now();
+
+    try {
+      // 尝试解析现有数据
+      const urlData = JSON.parse(existingData);
+      oldUrl = urlData.url;
+      originalTimestamp = urlData.timestamp || Date.now();
+    } catch (error) {
+      // 旧格式数据
+      oldUrl = existingData;
+    }
+
+    // 更新短链接，保持原有的时间戳
+    const updatedData = {
+      url: longUrl,
+      createTime: new Date().toISOString(),
+      timestamp: originalTimestamp, // 保持原有时间戳，这样排序不会改变
+      updateTime: new Date().toISOString()
+    };
+    await kv.put(shortKey, JSON.stringify(updatedData));
 
     return new Response(JSON.stringify({
       code: 200,
       message: 'Short link updated successfully',
       data: {
         shortKey: shortKey,
-        oldUrl: existingUrl,
+        oldUrl: oldUrl,
         newUrl: longUrl
       }
     }), {

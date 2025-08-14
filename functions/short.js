@@ -155,8 +155,13 @@ export async function onRequest(context) {
       }
     }
 
-    // 存储到 KV
-    await kv.put(finalShortKey, decodedUrl);
+    // 存储到 KV，包含时间戳信息
+    const urlData = {
+      url: decodedUrl,
+      createTime: new Date().toISOString(),
+      timestamp: Date.now()
+    };
+    await kv.put(finalShortKey, JSON.stringify(urlData));
 
     // 构建短链接 URL
     const shortUrl = `https://${request.headers.get('host')}/${finalShortKey}`;

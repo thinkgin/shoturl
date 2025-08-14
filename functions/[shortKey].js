@@ -2,7 +2,7 @@
 export async function onRequest(context) {
   try {
     const { request, env, params } = context;
-    
+
     // 检查 KV 是否可用
     const kv = env?.LINKS;
     if (!kv) {
@@ -21,11 +21,21 @@ export async function onRequest(context) {
       return new Response('Invalid short key', { status: 400 });
     }
 
-    // 从 KV 中获取对应的 long URL
-    const longUrl = await kv.get(shortKey);
-    
-    if (!longUrl) {
+    // 从 KV 中获取对应的数据
+    const storedData = await kv.get(shortKey);
+
+    if (!storedData) {
       return new Response('Short link not found', { status: 404 });
+    }
+
+    let longUrl;
+    try {
+      // 尝试解析JSON格式的新数据
+      const urlData = JSON.parse(storedData);
+      longUrl = urlData.url;
+    } catch (error) {
+      // 如果解析失败，说明是旧格式的纯URL字符串
+      longUrl = storedData;
     }
 
     // 验证 URL 格式
